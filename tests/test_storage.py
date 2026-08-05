@@ -12,19 +12,19 @@ class TestStorage(unittest.TestCase):
     def tearDown(self):
         self.temp_dir.cleanup()
 
-    def test_missing_file(self):
+    def test_missing_file(self): # test file that doesn't exist
         non_existent_path = os.path.join(self.temp_dir.name, "missing.json")
         result = load_notes(non_existent_path)
         self.assertEqual(result, [])
 
-    def test_empty_file(self):
+    def test_empty_file(self): # test file that is empty
         empty_file_path = os.path.join(self.temp_dir.name, "empty.json")
         with open(empty_file_path, "w", encoding="utf-8") as f:
             f.write("")
         result = load_notes(empty_file_path)
         self.assertEqual(result, [])
 
-    def test_one_note(self):
+    def test_one_note(self): # test file with one fake note
         note_file_path = os.path.join(self.temp_dir.name, "one_note.json")
         notes = [{"id": 1, "title": "First Note", "content": "Hello World"}]
         save_notes(note_file_path, notes)
@@ -32,7 +32,7 @@ class TestStorage(unittest.TestCase):
         loaded_notes = load_notes(note_file_path)
         self.assertEqual(loaded_notes, notes)
 
-    def test_roundtrip_three_notes(self):
+    def test_roundtrip_three_notes(self): # test file with multiple notes
         note_file_path = os.path.join(self.temp_dir.name, "three_notes.json")
         notes = [
             {"id": 1, "title": "Note 1", "content": "Content 1"},
