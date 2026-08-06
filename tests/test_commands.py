@@ -10,8 +10,8 @@ from main import build_parser
 
 class TestCLICommands(unittest.TestCase):
     def setUp(self):
-        self.temp_dir = tempfile.TemporaryDirectory() # create a fresh dir
-        self.file_path = os.path.join(self.temp_dir.name, "notes.json") 
+        self.temp_dir = tempfile.TemporaryDirectory()  # create a fresh dir
+        self.file_path = os.path.join(self.temp_dir.name, "notes.json")
         self.parser = build_parser()
 
     def tearDown(self):
@@ -65,6 +65,46 @@ class TestCLICommands(unittest.TestCase):
         output = self._run_cli(["--file", self.file_path, "list"])
         lines = output.strip().splitlines()
         self.assertEqual(lines, ["1: First note", "2: Second note"])
+
+    def test_search_matching_notes(self):
+        save_notes(
+            self.file_path,
+            [
+                {"id": 1, "text": "Buy milk"},
+                {"id": 2, "text": "Call doctor"},
+                {"id": 3, "text": "Buy groceries"},
+            ],
+        )
+
+        output = self._run_cli(["--file", self.file_path, "search", "buy"])
+        lines = output.strip().splitlines()
+        self.assertEqual(lines, ["1: Buy milk", "3: Buy groceries"])
+
+    def test_search_case_insensitive(self):
+        save_notes(
+            self.file_path,
+            [
+                {"id": 1, "text": "Call doctor"},
+            ],
+        )
+
+        output = self._run_cli(["--file", self.file_path, "search", "DOCTOR"])
+        self.assertEqual(output.strip(), "1: Call doctor")
+
+    def test_search_no_matches(self):
+        save_notes(
+            self.file_path,
+            [
+                {"id": 1, "text": "Buy milk"},
+            ],
+        )
+
+        output = self._run_cli(["--file", self.file_path, "search", "nonexistent"])
+        self.assertEqual(output.strip(), "No matching notes found.")
+
+    def test_search_empty_storage(self):
+        output = self._run_cli(["--file", self.file_path, "search", "test"])
+        self.assertEqual(output.strip(), "No matching notes found.")
 
 
 if __name__ == "__main__":
