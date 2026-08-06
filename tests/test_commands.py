@@ -3,6 +3,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from app.storage import load_notes, save_notes
 from main import build_parser
@@ -105,6 +106,73 @@ class TestCLICommands(unittest.TestCase):
     def test_search_empty_storage(self):
         output = self._run_cli(["--file", self.file_path, "search", "test"])
         self.assertEqual(output.strip(), "No matching notes found.")
+
+    @patch("builtins.input", return_value="y")
+    def test_delete_by_id_confirmed(self, mock_input):
+        save_notes(
+            self.file_path,
+            [
+                {"id": 1, "text": "Buy milk"},
+                {"id": 2, "text": "Call doctor"},
+            ],
+        )
+        output = self._run_cli(["--file", self.file_path, "delete", "1"])
+        self.assertIn("Note 1 deleted.", output)
+
+        notes = load_notes(self.file_path)
+        self.assertEqual(len(notes), 1)
+        self.assertEqual(notes[0]["id"], 2)
+
+    @patch("builtins.input", return_value="n")
+    def test_delete_by_id_cancelled(self, mock_input):
+        save_notes(
+            self.file_path,
+            [
+                {"id": 1, "text": "Buy milk"},
+            ],
+        )
+        output = self._run_cli(["--file", self.file_path, "delete", "1"])
+        self.assertIn("Deletion cancelled.", output)
+
+        notes = load_notes(self.file_path)
+        self.assertEqual(len(notes), 1)
+
+    @patch("builtins.input", return_value="yes")
+    def test_delete_by_search_string(self, mock_input):
+        save_notes(
+            self.file_path,
+            [
+                {"id": 1, "text": "Buy milk"},
+                {"id": 2, "text": "Call doctor"},
+            ],
+        )
+        output = self._run_cli(["--file", self.file_path, "delete", "doctor"])
+        self.assertIn("Note 2 deleted.", output)
+
+        notes = load_notes(self.file_path)
+        self.assertEqual(len(notes), 1)
+        self.assertEqual(notes[0]["id"], 1)
+
+    def test_delete_note_not_found(self):
+        save_notes(
+            self.file_path,
+            [
+                {"id": 1, "text": "Buy milk"},
+            ],
+        )
+        output = self._run_cli(["--file", self.file_path, "delete", "99"])
+        self.assertEqual(output.strip(), "Note not found.")
+
+    def test_delete_multiple_matches_requires_id(self):
+        save_notes(
+            self.file_path,
+            [
+                {"id": 1, "text": "Buy milk"},
+                {"id": 2, "text": "Buy groceries"},
+            ],
+        )
+        output = self._run_cli(["--file", self.file_path, "delete", "buy"])
+        self.assertIn("Multiple notes matched. Please specify a unique note ID:", output)
 
 
 if __name__ == "__main__":

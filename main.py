@@ -38,6 +38,47 @@ def handle_search(args):
         print(f"{note['id']}: {note['text']}")
 
 
+def handle_delete(args):
+    notes = load_notes(args.file)
+    if not notes:
+        print("No notes found.")
+        return
+
+    target = args.target
+    target_note = None
+
+    # First check if target matches an exact integer ID
+    if target.isdigit():
+        target_id = int(target)
+        target_note = next((n for n in notes if n.get("id") == target_id), None)
+
+    # If no ID match found, search by text substring
+    if target_note is None:
+        matches = [n for n in notes if target.lower() in n.get("text", "").lower()]
+        if not matches:
+            print("Note not found.")
+            return
+        elif len(matches) > 1:
+            print("Multiple notes matched. Please specify a unique note ID:")
+            for n in matches:
+                print(f"{n['id']}: {n['text']}")
+            return
+        else:
+            target_note = matches[0]
+
+    # Confirmation prompt
+    confirm = input(
+        f'Are you sure you want to delete note {target_note["id"]} ("{target_note["text"]}")? (y/n): '
+    ).strip().lower()
+
+    if confirm in ["y", "yes"]:
+        remaining_notes = [n for n in notes if n.get("id") != target_note["id"]]
+        save_notes(args.file, remaining_notes)
+        print(f"Note {target_note['id']} deleted.")
+    else:
+        print("Deletion cancelled.")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="CLI Application")
     parser.add_argument(
@@ -63,7 +104,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     # Delete subcommand
     delete_parser = subparsers.add_parser("delete", help="Delete a note")
-    delete_parser.set_defaults(func=handle_not_implemented)
+    delete_parser.add_argument("target", type=str, help="Note ID or search string")
+    delete_parser.set_defaults(func=handle_delete)
 
     return parser
 
