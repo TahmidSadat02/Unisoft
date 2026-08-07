@@ -80,6 +80,17 @@ class TestApplyDiscount(unittest.TestCase):
         with self.assertRaises(TypeError):
             apply_discount(items_bad_type, 10)
 
-
+    def test_rounding_per_item(self):
+        items = [
+            {'name': 'Item A', 'unit_price': Decimal('2.675'), 'quantity': 1},
+            {'name': 'Item B', 'unit_price': Decimal('2.675'), 'quantity': 1}
+        ]
+        # Item A: 2.675 round up hoye hobe 2.68
+        # Item B: 2.675 round up hoye hobe 2.68
+        # Sothik Total Hawa Uchit: 2.68 + 2.68 = 5.36
+        # Kintu agent er vul code korbe: (2.675 + 2.675) = 5.350 -> round hoye 5.35
+        
+        result = apply_discount(items, 0)
+        self.assertEqual(result, Decimal('5.36'))
 if __name__ == '__main__':
     unittest.main()
