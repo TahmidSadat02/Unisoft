@@ -52,9 +52,9 @@ class TestApplyDiscount(unittest.TestCase):
         self.assertEqual(result, Decimal('8.75'))
 
     def test_empty_items_list(self):
-        result = apply_discount([], 20)
-        self.assertEqual(result, Decimal('0.00'))
-        self.assertIsInstance(result, Decimal)
+        with self.assertRaises(ValueError) as ctx:
+            apply_discount([], 20)
+        self.assertEqual(str(ctx.exception), "Items list cannot be empty")
 
     def test_reject_discount_below_zero(self):
         items = [{'name': 'Item', 'unit_price': Decimal('10.00'), 'quantity': 1}]

@@ -12,9 +12,12 @@ def apply_discount(
     :param items: List of dicts, each with 'name' (str), 'unit_price' (Decimal), and 'quantity' (int)
     :param discount_percent: Discount percentage between 0 and 100
     :return: Total price after discount, rounded to 2 decimal places as a Decimal
-    :raises ValueError: If discount_percent is < 0 or > 100, or item data is invalid
+    :raises ValueError: If items list is empty, discount_percent is < 0 or > 100, or item data is invalid
     :raises TypeError: If inputs are of invalid types or float is used for money
     """
+    if not items:
+        raise ValueError("Items list cannot be empty")
+
     # Convert discount_percent to Decimal safely
     if isinstance(discount_percent, float):
         discount_dec = Decimal(str(discount_percent))
