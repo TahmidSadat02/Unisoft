@@ -96,5 +96,11 @@ class TestApplyDiscount(unittest.TestCase):
         
         result = apply_discount(items, 0)
         self.assertEqual(result, Decimal('5.36'))
+
+    def test_reject_float_discount(self):
+        items = [{'name': 'Item', 'unit_price': Decimal('10.00'), 'quantity': 1}]
+        # 10.5 hocche ekta float. Amader test asha korbe je code eta reject kore TypeError dibe.
+        with self.assertRaises(TypeError):
+            apply_discount(items, 10.5)
 if __name__ == '__main__':
     unittest.main()
