@@ -54,9 +54,10 @@ def apply_discount(
 
         if quantity < 0:
             raise ValueError(f"Quantity cannot be negative, got {quantity}")
-            
+
         print("Calculation shuru hocche!")
-        subtotal += unit_price * Decimal(quantity)
+        item_total = (unit_price * Decimal(quantity)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        subtotal += item_total
 
     # Apply discount
     multiplier = Decimal('1') - (discount_dec / Decimal('100'))
