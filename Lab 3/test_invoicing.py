@@ -5,6 +5,10 @@ from invoicing import apply_discount
 
 class TestApplyDiscount(unittest.TestCase):
 
+    def test_empty_items_list_raises_error(self):  # Empty list should raise an error. I just want to check this out
+        with self.assertRaises(ValueError):
+            apply_discount([], 10)
+
     def test_basic_discount(self):
         items = [
             {'name': 'Widget A', 'unit_price': Decimal('10.00'), 'quantity': 2},
