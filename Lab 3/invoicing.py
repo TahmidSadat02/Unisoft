@@ -54,7 +54,8 @@ def apply_discount(
 
         if quantity < 0:
             raise ValueError(f"Quantity cannot be negative, got {quantity}")
-
+            
+        print("Calculation shuru hocche!")
         subtotal += unit_price * Decimal(quantity)
 
     # Apply discount
