@@ -61,7 +61,7 @@ class TestApplyDiscount(unittest.TestCase):
         with self.assertRaises(ValueError):
             apply_discount(items, -1)
         with self.assertRaises(ValueError):
-            apply_discount(items, -0.01)
+            apply_discount(items, Decimal('-0.01'))
 
     def test_reject_discount_above_hundred(self):
         items = [{'name': 'Item', 'unit_price': Decimal('10.00'), 'quantity': 1}]

@@ -20,9 +20,12 @@ def apply_discount(
 
     # Convert discount_percent to Decimal safely
     if isinstance(discount_percent, float):
-        discount_dec = Decimal(str(discount_percent))
-    elif isinstance(discount_percent, (int, str, Decimal)):
-        discount_dec = Decimal(str(discount_percent)) if not isinstance(discount_percent, Decimal) else discount_percent
+        raise TypeError("discount_percent cannot be a float")
+    elif isinstance(discount_percent, (int, str, Decimal)) and not isinstance(discount_percent, bool):
+        try:
+            discount_dec = Decimal(str(discount_percent)) if not isinstance(discount_percent, Decimal) else discount_percent
+        except (InvalidOperation, TypeError):
+            raise ValueError(f"Invalid discount_percent value: {discount_percent}")
     else:
         raise TypeError(f"Unsupported discount_percent type: {type(discount_percent).__name__}")
 
@@ -58,7 +61,6 @@ def apply_discount(
         if quantity < 0:
             raise ValueError(f"Quantity cannot be negative, got {quantity}")
 
-        print("Calculation shuru hocche!")
         item_total = (unit_price * Decimal(quantity)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         subtotal += item_total
 
