@@ -21,13 +21,17 @@ class TestCLICommands(unittest.TestCase):
     def _run_cli(self, args_list):
         captured_output = io.StringIO()
         old_stdout = sys.stdout
+        old_stderr = sys.stderr  # Save original stderr stream reference
         try:
-            sys.stdout = captured_output
+            sys.stdout = captured_output  # Redirect stdout to captured buffer
+            sys.stderr = captured_output  # Redirect stderr to captured buffer to capture Error: messages
             args = self.parser.parse_args(args_list)
             if hasattr(args, "func"):
-                args.func(args)
+                from main import safe_execute
+                safe_execute(args.func, args)  # Execute handler via safe_execute to catch exceptions and format error output
         finally:
-            sys.stdout = old_stdout
+            sys.stdout = old_stdout  # Restore stdout
+            sys.stderr = old_stderr  # Restore stderr
         return captured_output.getvalue()
 
     def test_add_first_note(self):
@@ -173,6 +177,30 @@ class TestCLICommands(unittest.TestCase):
         )
         output = self._run_cli(["--file", self.file_path, "delete", "buy"])
         self.assertIn("Multiple notes matched. Please specify a unique note ID:", output)
+
+    def test_corrupted_json_handled(self):  # Regression test for Attack 6 (Corrupted JSON file)
+        # Write invalid JSON content to the notes file to simulate file corruption
+        with open(self.file_path, "w", encoding="utf-8") as f:
+            f.write("invalid json {{")
+
+        # Execute list subcommand against corrupted file
+        output = self._run_cli(["--file", self.file_path, "list"])
+        # Verify CLI handles corruption gracefully by outputting a clean Error: message without an unhandled traceback
+        self.assertIn("Error:", output)
+
+    def test_readonly_file_handled(self):  # Regression test for Attack 7 (Read-only file)
+        # Initialize storage file with valid notes
+        save_notes(self.file_path, [{"id": 1, "text": "Initial"}])
+        # Set file permissions to read-only (0o444)
+        os.chmod(self.file_path, 0o444)
+        try:
+            # Attempt to add a new note to read-only file
+            output = self._run_cli(["--file", self.file_path, "add", "New note"])
+            # Verify CLI outputs a clean Error: message instead of crashing with an unhandled PermissionError
+            self.assertIn("Error:", output)
+        finally:
+            # Restore write permissions so cleanup works properly in tearDown
+            os.chmod(self.file_path, 0o644)
 
 
 if __name__ == "__main__":

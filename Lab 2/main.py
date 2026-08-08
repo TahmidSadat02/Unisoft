@@ -1,8 +1,19 @@
 import argparse
 import sys
-from app.storage import load_notes, save_notes  # load notes from json file and save notes to json file
+from app.storage import load_notes, save_notes, file_lock, NotesFileCorruptedError  # Import storage functions, lock manager, and custom error
 
-DEFAULT_NOTES_FILE = "notes.json"  # default file path set to notes.json
+DEFAULT_NOTES_FILE = "notes.json"
+
+
+def safe_execute(func, args) -> bool:
+    """Wrapper to execute CLI command functions while catching file/IO/corruption errors gracefully."""
+    try:
+        func(args)  # Execute the subcommand handler (e.g. handle_add, handle_list)
+        return True  # Command completed without errors
+    except (NotesFileCorruptedError, PermissionError, OSError) as e:
+        # Catch JSON corruption or file permission/IO errors, print clean error message to stderr without stack trace
+        print(f"Error: {e}", file=sys.stderr)
+        return False  # Indicate that command execution failed due to an error
 
 
 def handle_not_implemented(args):
@@ -10,25 +21,27 @@ def handle_not_implemented(args):
 
 
 def handle_add(args):
-    notes = load_notes(args.file)  # reads existing notes, take the list of notes
-    next_id = max([n.get("id", 0) for n in notes], default=0) + 1  # add unique ID for each note, if no notes found then start from 1
-    new_note = {"id": next_id, "text": args.text}  # create a new note with that unique ID
-    notes.append(new_note)
-    save_notes(args.file, notes)  # save notes to json file
-    print(f"Added note {next_id}: {args.text}")  # prints the new note with the unique ID
+    # Acquire exclusive file lock before reading and writing to prevent concurrent race conditions (Attack 8)
+    with file_lock(args.file):
+        notes = load_notes(args.file)  # Load existing notes under lock
+        next_id = max([n.get("id", 0) for n in notes], default=0) + 1  # Calculate next unique note ID
+        new_note = {"id": next_id, "text": args.text}  # Construct new note object
+        notes.append(new_note)  # Append new note to list
+        save_notes(args.file, notes)  # Write updated notes list back to disk under lock
+        print(f"Added note {next_id}: {args.text}")  # Output confirmation message
 
 
 def handle_list(args):
-    notes = load_notes(args.file)  # read existing notes from json file
-    if not notes:  # if no notes found
+    notes = load_notes(args.file)
+    if not notes:
         print("No notes found.")
         return
     for note in notes:
-        print(f"{note['id']}: {note['text']}")  # prints the unique ID and the text
+        print(f"{note['id']}: {note['text']}")
 
 
 def handle_search(args):
-    notes = load_notes(args.file)  # read existing notes from json file
+    notes = load_notes(args.file)
     query = args.query.lower()
     matches = [note for note in notes if query in note.get("text", "").lower()]
     if not matches:
@@ -39,44 +52,43 @@ def handle_search(args):
 
 
 def handle_delete(args):
-    notes = load_notes(args.file)
-    if not notes:
-        print("No notes found.")
-        return
-
-    target = args.target
-    target_note = None
-
-    # First check if target matches an exact integer ID
-    if target.isdigit():
-        target_id = int(target)
-        target_note = next((n for n in notes if n.get("id") == target_id), None)
-
-    # If no ID match found, search by text substring
-    if target_note is None:
-        matches = [n for n in notes if target.lower() in n.get("text", "").lower()]
-        if not matches:
-            print("Note not found.")
+    # Acquire exclusive file lock before reading and modifying notes storage (Attack 8)
+    with file_lock(args.file):
+        notes = load_notes(args.file)  # Load existing notes under lock
+        if not notes:
+            print("No notes found.")
             return
-        elif len(matches) > 1:
-            print("Multiple notes matched. Please specify a unique note ID:")
-            for n in matches:
-                print(f"{n['id']}: {n['text']}")
-            return
+
+        target = args.target
+        target_note = None
+
+        if target.isdigit():
+            target_id = int(target)
+            target_note = next((n for n in notes if n.get("id") == target_id), None)
+
+        if target_note is None:
+            matches = [n for n in notes if target.lower() in n.get("text", "").lower()]
+            if not matches:
+                print("Note not found.")
+                return
+            elif len(matches) > 1:
+                print("Multiple notes matched. Please specify a unique note ID:")
+                for n in matches:
+                    print(f"{n['id']}: {n['text']}")
+                return
+            else:
+                target_note = matches[0]
+
+        confirm = input(
+            f'Are you sure you want to delete note {target_note["id"]} ("{target_note["text"]}")? (y/n): '
+        ).strip().lower()
+
+        if confirm in ["y", "yes"]:
+            remaining_notes = [n for n in notes if n.get("id") != target_note["id"]]
+            save_notes(args.file, remaining_notes)  # Save modified notes under lock
+            print(f"Note {target_note['id']} deleted.")
         else:
-            target_note = matches[0]
-
-    # Confirmation prompt
-    confirm = input(
-        f'Are you sure you want to delete note {target_note["id"]} ("{target_note["text"]}")? (y/n): '
-    ).strip().lower()
-
-    if confirm in ["y", "yes"]:
-        remaining_notes = [n for n in notes if n.get("id") != target_note["id"]]
-        save_notes(args.file, remaining_notes)
-        print(f"Note {target_note['id']} deleted.")
-    else:
-        print("Deletion cancelled.")
+            print("Deletion cancelled.")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -115,7 +127,9 @@ def main():
     args = parser.parse_args()
 
     if hasattr(args, "func"):
-        args.func(args)
+        # Safely execute subcommand via safe_execute wrapper to handle errors cleanly
+        if not safe_execute(args.func, args):
+            sys.exit(1)  # Exit with status code 1 on caught file/storage errors
     else:
         parser.print_help()
 
